@@ -91,7 +91,6 @@ class INA219:
     __VOLT_ERR_MSG = ('Invalid voltage range, must be one of: '
                       'RANGE_16V, RANGE_32V')
 
-    __LOG_FORMAT = '%(asctime)s - %(levelname)s - INA219 %(message)s'
     __LOG_MSG_1 = ('shunt ohms: %.3f, bus max volts: %d, '
                    'shunt volts max: %.2f%s, '
                    'bus ADC: %d, shunt ADC: %d')
@@ -110,8 +109,7 @@ class INA219:
     __CURRENT_LSB_FACTOR = 32800
 
     def __init__(self, i2c_device: 'I2cDevice', shunt_ohms: float,
-                 max_expected_amps: Optional[float] = None,
-                 log_level: int = logging.ERROR) -> None:
+                 max_expected_amps: Optional[float] = None) -> None:
         """Construct the class.
 
         Pass in the resistance of the shunt resistor and the maximum expected
@@ -121,18 +119,11 @@ class INA219:
         i2c_device -- the I2C driver to be used for I2C communication
         shunt_ohms -- value of shunt resistor in Ohms (mandatory).
         max_expected_amps -- the maximum expected current in Amps (optional).
-        log_level -- set to logging.DEBUG to see detailed calibration
-            calculations (optional).
         """
         assert isinstance(i2c_device, I2cDevice), \
             'I2C device class must be a subclass of I2cDevice'
 
-        if len(logging.getLogger().handlers) == 0:
-            # Initialize the root logger only if it hasn't been done yet by a
-            # parent module.
-            logging.basicConfig(level=log_level, format=self.__LOG_FORMAT)
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(log_level)
 
         self._i2c = i2c_device
         self._shunt_ohms = shunt_ohms

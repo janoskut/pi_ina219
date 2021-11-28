@@ -89,7 +89,13 @@ def find_i2c_driver(interface: int, address: int,
                               f'{list(drivers.keys())}')
 
 
+LOG_LEVEL = logging.WARN
+LOG_FORMAT = '%(asctime)s - %(levelname)s - INA219 %(message)s'
+
+
 def read():
+
+    logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
 
     SHUNT_OHMS = 0.1
     MAX_EXPECTED_AMPS = 0.2
@@ -98,8 +104,7 @@ def read():
 
     i2c_device = find_i2c_driver(interface=1, address=i2c_addr)
 
-    ina = INA219(i2c_device, SHUNT_OHMS, MAX_EXPECTED_AMPS,
-                 log_level=logging.INFO)
+    ina = INA219(i2c_device, SHUNT_OHMS, MAX_EXPECTED_AMPS)
     ina.configure(ina.RANGE_16V, ina.GAIN_AUTO)
 
     print("Bus Voltage    : %.3f V" % ina.voltage())
