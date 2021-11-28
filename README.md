@@ -24,26 +24,33 @@ be minimised.
 The library has been tested with the
 [Adafruit INA219 Breakout](https://www.adafruit.com/products/904).
 
-## Installation and Upgrade
+## Installation
 
-This library and its dependency
-([Adafruit GPIO library](https://github.com/adafruit/Adafruit_Python_GPIO))
-can be installed from PyPI by executing:
+This library and its dependency can be installed from PyPI by executing:
 
 ```shell
 pip3 install pi-ina219
 ```
 
-To upgrade from a previous version installed direct from Github execute:
+## I2C driver support
 
+This library provides a generic I2C driver interface which allows the usage
+with different I2C driver libraries, such as `smbus`,
+[smbus2](https://github.com/kplindegaard/smbus2) or
+[Adafruit GPIO library](https://github.com/adafruit/Adafruit_Python_GPIO).
+See `example.py` for implementations using mentioned libraries.
+
+Those three I2C driver libraries are supported by the Raspberry Pi models,
+but there may be others. Remember to enable the I2C bus under the
+_Advanced Options_ of _raspi-config_.
+
+The `pi-ina219` library can be installed with support of a specific driver
+libraries:
 ```shell
-pip3 uninstall pi-ina219
-pip3 install pi-ina219
+pip3 install pi-ina219[smbus]
+pip3 install pi-ina219[smbus2]
+pip3 install pi-ina219[Adafruit]
 ```
-
-The Adafruit library supports the I2C protocol on all versions of the
-Raspberry Pi. Remember to enable the I2C bus under the _Advanced Options_
-of _raspi-config_.
 
 ## Usage
 

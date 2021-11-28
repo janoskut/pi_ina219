@@ -1,7 +1,9 @@
 import sys
 import logging
 import unittest
+
 from ina219 import INA219
+
 
 logger = logging.getLogger()
 logger.level = logging.ERROR
