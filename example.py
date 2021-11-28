@@ -8,7 +8,11 @@ MAX_EXPECTED_AMPS = 0.2
 
 
 def read():
-    ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS, log_level=logging.INFO)
+
+    i2c_addr = INA219.i2c_addr()
+
+    ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS, address=i2c_addr,
+                 log_level=logging.INFO)
     ina.configure(ina.RANGE_16V, ina.GAIN_AUTO)
 
     print("Bus Voltage    : %.3f V" % ina.voltage())
