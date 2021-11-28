@@ -2,6 +2,7 @@
 
 Supports the Raspberry Pi using the I2C bus.
 """
+from enum import IntEnum
 import logging
 import time
 from math import trunc
@@ -34,6 +35,22 @@ class INA219:
     ADC_128SAMP = 15  # 128 samples at 12-bit, conversion time 68.10ms.
 
     __ADDRESS = 0x40
+
+    class I2cAddrAx(IntEnum):
+        """Configuration values for INA219 pins A0 and A1."""
+        GND = 0b00
+        VSP = 0b01
+        SDA = 0b10
+        SCL = 0b11
+
+    @staticmethod
+    def i2c_addr(a0: I2cAddrAx = I2cAddrAx.GND,
+                 a1: I2cAddrAx = I2cAddrAx.GND) -> int:
+        """Create an I2C address from INA219 pins A0 and A1 configurations.
+
+        See "8.5.5.1 Serial Bus Address" from the datasheet.
+        """
+        return 0x40 + (a1.value << 2) + a0.value
 
     __REG_CONFIG = 0x00
     __REG_SHUNTVOLTAGE = 0x01
