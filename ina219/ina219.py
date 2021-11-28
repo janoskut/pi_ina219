@@ -93,7 +93,6 @@ class INA219:
     __VOLT_ERR_MSG = ('Invalid voltage range, must be one of: '
                       'RANGE_16V, RANGE_32V')
 
-    __LOG_FORMAT = '%(asctime)s - %(levelname)s - INA219 %(message)s'
     __LOG_MSG_1 = ('shunt ohms: %.3f, bus max volts: %d, '
                    'shunt volts max: %.2f%s, '
                    'bus ADC: %d, shunt ADC: %d')
@@ -116,7 +115,7 @@ class INA219:
                  max_expected_amps: Optional[float] = None,
                  busnum: Optional[int] = None,
                  address: int = I2C_ADDR_DEFAULT,
-                 log_level: int = logging.ERROR,
+                 log_level: Optional[int] = None,
                  i2c_driver: Optional['I2cDriver'] = None) -> None:
         """Construct the class.
 
@@ -128,16 +127,17 @@ class INA219:
         max_expected_amps -- the maximum expected current in Amps (optional).
         busnum -- deprecated and ignored
         address -- the I2C address of the INA219 device
-        log_level -- set to logging.DEBUG to see detailed calibration
-            calculations (optional).
+        log_level -- deprecated and ignored
         i2c_driver -- the I2C driver to be used for I2C communication
         """
-        if len(logging.getLogger().handlers) == 0:
-            # Initialize the root logger only if it hasn't been done yet by a
-            # parent module.
-            logging.basicConfig(level=log_level, format=self.__LOG_FORMAT)
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(log_level)
+
+        if log_level is not None:
+            self.logger.warning(
+                 'The `log_level` argument is deprecated and will be '
+                 'removed in future library versions. The argument is '
+                 'ignored. Loglevel needs to be set externally for '
+                 'this module.')
 
         if not i2c_driver:
             self.logger.warning(
