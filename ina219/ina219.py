@@ -2,12 +2,13 @@
 
 Supports the Raspberry Pi using the I2C bus.
 """
+import abc
 from enum import IntEnum
 import logging
-import time
 from math import trunc
-from typing import cast, List, Optional
-import Adafruit_GPIO.I2C as I2C  # type: ignore
+import struct
+import time
+from typing import Optional
 
 
 class INA219:
@@ -34,7 +35,9 @@ class INA219:
     ADC_64SAMP = 14  # 64 samples at 12-bit, conversion time 34.05ms.
     ADC_128SAMP = 15  # 128 samples at 12-bit, conversion time 68.10ms.
 
-    __ADDRESS = 0x40
+    BUSNUM_DEFAULT = 1
+
+    I2C_ADDR_DEFAULT = 0x40
 
     class I2cAddrAx(IntEnum):
         """Configuration values for INA219 pins A0 and A1."""
@@ -108,10 +111,13 @@ class INA219:
     # to guarantee that current overflow can always be detected.
     __CURRENT_LSB_FACTOR = 32800
 
-    def __init__(self, shunt_ohms: float,
+    def __init__(self,
+                 shunt_ohms: float,
                  max_expected_amps: Optional[float] = None,
-                 busnum: Optional[int] = None, address: int = __ADDRESS,
-                 log_level: int = logging.ERROR) -> None:
+                 busnum: Optional[int] = None,
+                 address: int = I2C_ADDR_DEFAULT,
+                 log_level: int = logging.ERROR,
+                 i2c_driver: Optional['I2cDriver'] = None) -> None:
         """Construct the class.
 
         Pass in the resistance of the shunt resistor and the maximum expected
@@ -120,10 +126,11 @@ class INA219:
         Arguments:
         shunt_ohms -- value of shunt resistor in Ohms (mandatory).
         max_expected_amps -- the maximum expected current in Amps (optional).
-        address -- the I2C address of the INA219, defaults
-            to *0x40* (optional).
+        busnum -- deprecated and ignored
+        address -- the I2C address of the INA219 device
         log_level -- set to logging.DEBUG to see detailed calibration
             calculations (optional).
+        i2c_driver -- the I2C driver to be used for I2C communication
         """
         if len(logging.getLogger().handlers) == 0:
             # Initialize the root logger only if it hasn't been done yet by a
@@ -132,7 +139,31 @@ class INA219:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
 
-        self._i2c = I2C.get_i2c_device(address=address, busnum=busnum)
+        if not i2c_driver:
+            self.logger.warning(
+                'No `i2c_driver` specified. Automatically detecting I2C '
+                'driver using deprecated `busnum` argument. '
+                'WARNING: Future versions of the library will enforce '
+                'explicit passing of an I2C driver instance.')
+            if busnum is None:
+                busnum = self.BUSNUM_DEFAULT
+                self.logger.warning(
+                    f'No `busnum` provided. Using `busnum={busnum}` '
+                    '(default for Raspberry Pi >=2)')
+            from . import drivers
+            i2c_driver = drivers.auto(interface=busnum)
+        else:
+            if busnum is not None:
+                self.logger.warning(
+                    'The busnum argument is ignored. It is deprecated and '
+                    'will be removed in future library versions. Use the '
+                    '`i2c_driver` interface to specify a bus number.')
+
+        assert isinstance(i2c_driver, I2cDriver), \
+            'I2C driver class must be a subclass of I2cDriver'
+
+        self._i2c = i2c_driver
+        self._address = address
         self._shunt_ohms = shunt_ohms
         self._max_expected_amps = max_expected_amps
         self._min_device_current_lsb = self._calculate_min_current_lsb()
@@ -390,10 +421,10 @@ class INA219:
         return self.__read_register(self.__REG_BUSVOLTAGE)
 
     def _current_register(self) -> int:
-        return self.__read_register(self.__REG_CURRENT, True)
+        return self.__read_register(self.__REG_CURRENT, signed=True)
 
     def _shunt_voltage_register(self) -> int:
-        return self.__read_register(self.__REG_SHUNTVOLTAGE, True)
+        return self.__read_register(self.__REG_SHUNTVOLTAGE, signed=True)
 
     def _power_register(self) -> int:
         return self.__read_register(self.__REG_POWER)
@@ -402,28 +433,18 @@ class INA219:
         if voltage_range > len(self.__BUS_RANGE) - 1:
             raise ValueError(self.__VOLT_ERR_MSG)
 
-    def __write_register(self, register: int, register_value: int) -> None:
-        register_bytes = self.__to_bytes(register_value)
+    def __write_register(self, register: int, value: int) -> None:
         self.logger.debug(
             "write register 0x%02x: 0x%04x 0b%s" %
-            (register, register_value,
-             self.__binary_as_string(register_value)))
-        self._i2c.writeList(register, register_bytes)
+            (register, value, self.__binary_as_string(value)))
+        self._i2c.write(self._address, register, struct.pack('>H', value))
 
-    def __read_register(self, register: int,
-                        negative_value_supported: bool = False) -> int:
-        if negative_value_supported:
-            register_value = self._i2c.readS16BE(register)
-        else:
-            register_value = self._i2c.readU16BE(register)
+    def __read_register(self, register: int, signed: bool = False) -> int:
+        value = self._i2c.read_word(self._address, register, signed)
         self.logger.debug(
             "read register 0x%02x: 0x%04x 0b%s" %
-            (register, register_value,
-             self.__binary_as_string(register_value)))
-        return cast(int, register_value)
-
-    def __to_bytes(self, register_value: int) -> List[int]:
-        return [(register_value >> 8) & 0xFF, register_value & 0xFF]
+            (register, value, self.__binary_as_string(value)))
+        return value
 
     def __binary_as_string(self, register_value: int) -> str:
         return bin(register_value)[2:].zfill(16)
@@ -450,3 +471,45 @@ class DeviceRangeError(Exception):
         super(DeviceRangeError, self).__init__(msg)
         self.gain_volts = gain_volts
         self.device_limit_reached = device_max
+
+
+class I2cDriver(abc.ABC):
+    """Abstract super class of an I2C driver, defining required
+       I2C communication primitives.
+
+    Implementations must ensure that the network byte order ("big endian",
+    MSB first) is followed for read and write operations.
+    """
+
+    @classmethod
+    @abc.abstractclassmethod
+    def load(cls, interface: int) -> 'I2cDriver':
+        """Factory method to load a concrete instance of an I2cDriver.
+
+        Arguments:
+        interface -- system I2C interface identifier
+        """
+
+    @abc.abstractmethod
+    def write(self, address: int, register: int, data: bytes) -> None:
+        """Write data bytes to a register address of the I2C device.
+
+        Arguments:
+        address -- I2C slave address of the device to write to
+        register -- register address at which to write data bytes.
+        data -- data bytes to write
+        """
+
+    @abc.abstractmethod
+    def read_word(self, address: int, register: int,
+                  signed: bool = False) -> int:
+        """Read a (16-bit) word from a register address of the I2C device.
+
+        Arguments:
+        address -- I2C slave address of the device to read from
+        register -- register address from which to read.
+        signed -- whether or not to treat the result as a 2's complement
+                  signed number.
+        Returns:
+        (int) -- A 16 bit integer (MSB first).
+        """
