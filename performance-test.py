@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import time
-import logging
 
 from ina219 import INA219, drivers
 
@@ -12,7 +11,7 @@ MAX_EXPECTED_AMPS = 0.2
 READS = 100
 
 
-ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS, log_level=logging.INFO,
+ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS,
              i2c_driver=drivers.auto(interface=1))
 
 

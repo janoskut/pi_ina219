@@ -9,13 +9,17 @@ SHUNT_OHMS = 0.1
 MAX_EXPECTED_AMPS = 0.2
 
 
+LOG_LEVEL = logging.WARN
+LOG_FORMAT = '%(asctime)s - %(levelname)s - INA219 %(message)s'
+logging.basicConfig(level=LOG_LEVEL, format=LOG_FORMAT)
+
+
 def read():
 
     i2c_addr = INA219.i2c_addr()
 
     # old interface (internal I2C driver detection)
-    ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS, address=i2c_addr,
-                 log_level=logging.INFO)
+    # ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS, address=i2c_addr)
 
     # new interface passing explicit I2C driver
     driver = drivers.auto(interface=1)
@@ -23,7 +27,6 @@ def read():
     # driver = drivers.Smbus2Driver.load(interface=1)
     # driver = drivers.AdafruitDriver.load(interface=1)
     ina = INA219(SHUNT_OHMS, MAX_EXPECTED_AMPS, address=i2c_addr,
-                 log_level=logging.INFO,
                  i2c_driver=driver)
 
     ina.configure(ina.RANGE_16V, ina.GAIN_AUTO)

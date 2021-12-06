@@ -34,6 +34,11 @@ class TestConstructor(unittest.TestCase):
         self.ina = INA219(0.1, busnum=0, i2c_driver=self.i2c)
         self.ina.logger.warning.assert_called()
 
+    @patch('logging.getLogger')
+    def test_deprecated_loglevel_argument(self, logger):
+        self.ina = INA219(0.1, log_level=1, i2c_driver=self.i2c)
+        self.ina.logger.warning.assert_called()
+
     def test_default(self):
         self.ina = INA219(0.1, i2c_driver=self.i2c)
         self.assertEqual(self.ina._shunt_ohms, 0.1)
